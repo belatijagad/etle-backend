@@ -1,9 +1,7 @@
-fastapi
+fastapi[standard]
 uvicorn
-sqlalchemy
 python-dotenv
 pydantic
 pydantic-settings
-aiofiles
-ultralytics
-opencv-python-headless
+sqlalchemy
+alembic
