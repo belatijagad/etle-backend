@@ -8,10 +8,12 @@ from app.models.image import Image, ImageCreate
 from app.core.config import settings
 from app.core.exceptions import ImageNotFoundException, InvalidImageFormatException
 from app.services.base_service import BaseService
+from app.services.prediction_service import PredictionService
 
 class ImageService(BaseService):
   def __init__(self, upload_dir: str = 'images'):
     self.upload_dir = upload_dir
+    self.prediction_service = PredictionService()
 
   async def upload(self, file: UploadFile) -> dict:
     try:
@@ -22,7 +24,7 @@ class ImageService(BaseService):
       await self._save_file(file, file_path)
       
       image_data = ImageCreate(
-        id=UUID(file_id),  # Use the same ID
+        id=UUID(file_id),
         filename=unique_filename,
         filepath=file_path,
         content_type=file.content_type,
@@ -30,13 +32,23 @@ class ImageService(BaseService):
       )
       db_image = await self._save_to_database(image_data)
       
+      # Automatically run prediction after upload
+      try:
+        print(f"Running prediction for image: {file_id}")
+        await self.prediction_service.predict_image(db_image.id)
+        print(f"Prediction completed for image: {file_id}")
+      except Exception as e:
+        print(f"Error in prediction: {str(e)}")
+        # Don't raise the error - we still want to return upload success
+      
       return {
         'status': 'success',
         'id': file_id,
         'filename': unique_filename,
         'filepath': file_path,
-        'message': 'Image uploaded successfully',
+        'message': 'Image uploaded and processed successfully',
       }
+        
     except HTTPException as he:
       raise he
     except Exception as e:
@@ -44,6 +56,7 @@ class ImageService(BaseService):
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail=f'An error occurred while uploading the image: {str(e)}'
       )
+
 
   async def get_image(self, image_id: UUID) -> Image:
     with self.get_session() as session:

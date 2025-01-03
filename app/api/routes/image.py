@@ -6,15 +6,13 @@ import os
 
 from app.services.image_service import ImageService
 from app.services.prediction_service import PredictionService
-from app.core.exceptions import ImageNotFoundException, InvalidImageFormatException
+from app.core.exceptions import ImageNotFoundException
 from app.core.config import settings
 from app.api.schemas.responses import (
   UploadResponse,
   PredictionResponse,
   ImageResponse,
   ListImagesResponse,
-  ViolationDetection,
-  ViolationListResponse,
 )
 
 router = APIRouter(prefix='/image', tags=['image'])
@@ -29,16 +27,8 @@ prediction_service = PredictionService()
 async def upload_image(
   file: Annotated[UploadFile, File(description="The image file to upload")]
 ) -> UploadResponse:
-  try:
-    result = await image_service.upload(file)
-    return UploadResponse(**result)
-  except InvalidImageFormatException as e:
-    raise e
-  except Exception as e:
-    raise HTTPException(
-      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-      detail=str(e)
-    )
+  result = await image_service.upload(file)
+  return UploadResponse(**result)
 
 @router.post(
   '/predict/{image_id}',
@@ -137,47 +127,6 @@ async def delete_image(
     await image_service.delete_image(image_id)
   except ImageNotFoundException as e:
     raise e
-  except Exception as e:
-    raise HTTPException(
-      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-      detail=str(e)
-    )
-  
-@router.get(
-  '/violations/{image_id}',
-  response_model=ViolationListResponse,
-  description="Get violations from a specific image"
-)
-async def get_violations(image_id: UUID) -> ViolationListResponse:
-  """
-  Get all violations detected in a specific image
-  """
-  try:
-    image = await image_service.get_image(image_id)
-    if not image.predictions:
-      return ViolationListResponse(total=0, items=[])
-
-    violations = []
-    cropped_base = f"{image_id}_violation_"
-    cropped_dir = os.path.join(settings.CROPPED_IMAGES_DIR)
-    
-    # List all cropped images for this image_id
-    violation_images = [f for f in os.listdir(cropped_dir) if f.startswith(cropped_base)]
-    
-    for cropped_file in violation_images:
-      violation = ViolationDetection(
-        image_id=str(image_id),
-        original_image=image.filepath,
-        cropped_image=os.path.join(settings.CROPPED_IMAGES_DIR, cropped_file),
-        detected_at=image.created_at
-      )
-      violations.append(violation)
-    
-    return ViolationListResponse(
-      total=len(violations),
-      items=violations
-    )
-    
   except Exception as e:
     raise HTTPException(
       status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

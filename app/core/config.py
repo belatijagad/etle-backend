@@ -20,5 +20,6 @@ class Settings(BaseSettings):
   ROBOFLOW_MODEL_URL: str = 'https://detect.roboflow.com/helm-motor-siter/2'
   UPLOAD_DIR: str = 'images'
   CROPPED_IMAGES_DIR: str = 'cropped_images'
+  BASE_URL: str = "http://localhost:8000"
 
 settings = Settings()

@@ -1,5 +1,6 @@
 from fastapi import FastAPI
-from fastapi.routing import APIRoute
+from fastapi.staticfiles import StaticFiles
+import os
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
@@ -14,6 +15,12 @@ app.add_middleware(
   allow_methods=['*'],
   allow_headers=['*'],
 )
+
+os.makedirs("images", exist_ok=True)
+os.makedirs("cropped_images", exist_ok=True)
+
+app.mount("/images", StaticFiles(directory="images"), name="images")
+app.mount("/cropped_images", StaticFiles(directory="cropped_images"), name="cropped_images")
 
 app.include_router(api_router, prefix=settings.API_STR)
 
