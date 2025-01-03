@@ -53,19 +53,27 @@ class ImageService(BaseService):
       return image
 
   async def count_images(self) -> int:
-    """Get total count of images in the database."""
     with self.get_session() as session:
       statement = select(func.count(Image.id))
       result = session.exec(statement).first()
       return result or 0
 
   async def list_images(self, skip: int = 0, limit: int = 100) -> list[Image]:
-    """List images with pagination."""
     with self.get_session() as session:
       statement = select(Image).offset(skip).limit(limit)
       images = session.exec(statement).all()
       return images
 
+  async def list_violations(self, skip: int = 0, limit: int = 100) -> list[Image]:
+    with self.get_session() as session:
+      statement = select(Image).where(Image.predictions.isnot(None)).offset(skip).limit(limit)
+      images = session.exec(statement).all()
+      return images
+
+  async def count_violations(self) -> int:
+    with self.get_session() as session:
+      result = session.exec(select(func.count()).select_from(Image).where(Image.predictions.isnot(None))).first()
+      return result or 0
 
   async def delete_image(self, image_id: UUID) -> None:
     with self.get_session() as session:

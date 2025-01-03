@@ -34,3 +34,32 @@ class ListImagesResponse(BaseModel):
   page: int
   size: int
   pages: int
+
+class ViolationDetection(BaseModel):
+  id: UUID
+  image_id: str
+  image_path: str
+  cropped_image_path: str
+  confidence: float
+  detected_at: datetime
+  
+  model_config = ConfigDict(from_attributes=True)
+
+class ViolationResponse(BaseModel):
+  id: int
+  status: int
+  type: int
+  plate_number: str | None
+  timestamp: datetime
+  location: str | None
+  image_url: str
+  drone: str | None
+  
+  model_config = ConfigDict(from_attributes=True)
+
+class ViolationListResponse(BaseModel):
+  total: int
+  items: List[ViolationResponse]
+  page: int
+  size: int
+  pages: int

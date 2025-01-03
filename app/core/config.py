@@ -1,6 +1,6 @@
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
-from pydantic import AnyUrl, BeforeValidator
+from pydantic import AnyUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 def parse_cors(v: Any) -> list[str] | str:
