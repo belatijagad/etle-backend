@@ -21,6 +21,16 @@ pip install -r requirements.txt
 ## 4. Create `.env` file on project root
 Minimum content for the .env
 ```bash
+DB_TYPE=sqlite  # Change to "postgres" for PostgreSQL
+# SQLite settings
+SQLITE_DB_FILE=sql_app.db
+# PostgreSQL settings
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_password
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=db
+
 ROBOFLOW_API_KEY=INSERT_API_KEY_HERE
 BASE_URL=BACKEND_URL
 ```
