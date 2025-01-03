@@ -1,5 +1,4 @@
 from sqlmodel import SQLModel, create_engine
-import os
 from app.core.config import settings
 
 DATABASE_URL = "sqlite:///./sql_app.db"

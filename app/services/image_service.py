@@ -1,12 +1,15 @@
-import os
 from uuid import UUID, uuid4
 import aiofiles
+import os
 from fastapi import UploadFile, HTTPException, status
-from sqlmodel import Session, select
+from sqlalchemy import func
+from sqlmodel import select
 from app.models.image import Image, ImageCreate
-from app.core.db import engine
+from app.core.config import settings
+from app.core.exceptions import ImageNotFoundException, InvalidImageFormatException
+from app.services.base_service import BaseService
 
-class ImageService:
+class ImageService(BaseService):
   def __init__(self, upload_dir: str = 'images'):
     self.upload_dir = upload_dir
 
@@ -15,10 +18,11 @@ class ImageService:
       await self._validate_image(file)
       await self._ensure_upload_dir()
       
-      file_path, unique_filename = self._generate_file_path(file)
+      file_path, unique_filename, file_id = self._generate_file_path(file)
       await self._save_file(file, file_path)
       
       image_data = ImageCreate(
+        id=UUID(file_id),  # Use the same ID
         filename=unique_filename,
         filepath=file_path,
         content_type=file.content_type,
@@ -28,12 +32,11 @@ class ImageService:
       
       return {
         'status': 'success',
-        'id': str(db_image.id),
+        'id': file_id,
         'filename': unique_filename,
         'filepath': file_path,
         'message': 'Image uploaded successfully',
       }
-        
     except HTTPException as he:
       raise he
     except Exception as e:
@@ -43,20 +46,71 @@ class ImageService:
       )
 
   async def get_image(self, image_id: UUID) -> Image:
-    with Session(engine) as session:
+    with self.get_session() as session:
       image = session.get(Image, image_id)
       if not image:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+        raise ImageNotFoundException()
       return image
 
+  async def count_images(self) -> int:
+    """Get total count of images in the database."""
+    with self.get_session() as session:
+      statement = select(func.count(Image.id))
+      result = session.exec(statement).first()
+      return result or 0
+
   async def list_images(self, skip: int = 0, limit: int = 100) -> list[Image]:
-    with Session(engine) as session:
-      images = session.exec(select(Image).offset(skip).limit(limit)).all()
+    """List images with pagination."""
+    with self.get_session() as session:
+      statement = select(Image).offset(skip).limit(limit)
+      images = session.exec(statement).all()
       return images
+
+
+  async def delete_image(self, image_id: UUID) -> None:
+    with self.get_session() as session:
+      image = session.get(Image, image_id)
+      if not image: raise ImageNotFoundException()
+      if os.path.exists(image.filepath): os.remove(image.filepath)
+      base_name = f"{image_id}_violation_"
+      cropped_dir = settings.CROPPED_IMAGES_DIR
+      for file in os.listdir(cropped_dir):
+        if file.startswith(base_name):
+          os.remove(os.path.join(cropped_dir, file))
+      session.delete(image)
+      session.commit()
+
+  def _create_upload_response(self, db_image: Image, filename: str, filepath: str) -> dict:
+    return {
+      'status': 'success',
+      'id': str(db_image.id),
+      'filename': filename,
+      'filepath': filepath,
+      'message': 'Image uploaded successfully',
+    }
+
+  async def _validate_image(self, file: UploadFile) -> None:
+    if not file.content_type.startswith('image/'):
+      raise InvalidImageFormatException()
+
+  async def _ensure_upload_dir(self) -> None:
+    os.makedirs(self.upload_dir, exist_ok=True)
+
+  def _generate_file_path(self, file: UploadFile) -> tuple[str, str]:
+    original_extension = os.path.splitext(file.filename)[1]
+    file_id = str(uuid4())
+    unique_filename = f"{file_id}{original_extension}"
+    file_path = os.path.join(self.upload_dir, unique_filename)
+    return file_path, unique_filename, file_id
+
+  async def _save_file(self, file: UploadFile, file_path: str) -> None:
+    async with aiofiles.open(file_path, 'wb') as out_file:
+      content = await file.read()
+      await out_file.write(content)
 
   async def _save_to_database(self, image_data: ImageCreate) -> Image:
     try:
-      with Session(engine) as session:
+      with self.get_session() as session:
         db_image = Image.model_validate(image_data)
         session.add(db_image)
         session.commit()
@@ -69,22 +123,3 @@ class ImageService:
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail=f"Failed to save image to database: {str(e)}"
       )
-
-  async def _validate_image(self, file: UploadFile) -> None:
-    if not file.content_type.startswith('image/'):
-      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='File must be an image')
-
-  async def _ensure_upload_dir(self) -> None:
-    if not os.path.exists(self.upload_dir):
-        os.makedirs(self.upload_dir)
-
-  def _generate_file_path(self, file: UploadFile) -> tuple[str, str]:
-    file_extension = os.path.splitext(file.filename)[1]
-    unique_filename = f'{uuid4()}{file_extension}'
-    file_path = os.path.join(self.upload_dir, unique_filename)
-    return file_path, unique_filename
-
-  async def _save_file(self, file: UploadFile, file_path: str) -> None:
-    async with aiofiles.open(file_path, 'wb') as out_file:
-      content = await file.read()
-      await out_file.write(content)

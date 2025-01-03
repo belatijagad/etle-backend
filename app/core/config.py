@@ -1,11 +1,7 @@
-import secrets
-import warnings
 from typing import Annotated, Any, Literal
 
-from pydantic import AnyUrl, BeforeValidator, HttpUrl, PostgresDsn, computed_field, model_validator
-from pydantic_core import MultiHostUrl
+from pydantic import AnyUrl, BeforeValidator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing_extensions import Self
 
 def parse_cors(v: Any) -> list[str] | str:
   if isinstance(v, str) and not v.startswith('['):
@@ -19,6 +15,10 @@ class Settings(BaseSettings):
   API_STR: str = '/api'
   FRONTEND_HOST: str = 'http://localhost:3000'
   ENVIRONMENT: Literal['local', 'staging', 'production'] = 'local'
-  BACKEND_CORS_ORIGINS: Annotated[list[AnyUrl] | str, BeforeValidator(parse_cors)] = []
+  BACKEND_CORS_ORIGINS: list[AnyUrl] | str = []
+  ROBOFLOW_API_KEY: str = 'your_api_key_here'
+  ROBOFLOW_MODEL_URL: str = 'https://detect.roboflow.com/helm-motor-siter/2'
+  UPLOAD_DIR: str = 'images'
+  CROPPED_IMAGES_DIR: str = 'cropped_images'
 
-settings = Settings()  # type: ignore
+settings = Settings()

@@ -3,19 +3,18 @@ from sqlmodel import SQLModel, Field
 from uuid import UUID, uuid4
 
 class ImageBase(SQLModel):
-  filename: str
-  filepath: str
-  content_type: str
-  size: int
-  upload_time: datetime = Field(default_factory=datetime.utcnow)
-    
+  filename: str = Field(...)
+  filepath: str = Field(...)
+  content_type: str = Field(...)
+  size: int = Field(...)
+  predictions: str | None = Field(default=None)
+
 class Image(ImageBase, table=True):
-  id: UUID | None = Field(default_factory=uuid4, primary_key=True)
-  prediction: str | None = Field(default=None)
-  validation: bool | None = Field(default=None)
+  id: UUID = Field(default_factory=uuid4, primary_key=True)
+  created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class ImageCreate(ImageBase):
-  pass
+  id: UUID | None = None
 
 class ImageRead(ImageBase):
   id: UUID
