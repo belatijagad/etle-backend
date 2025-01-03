@@ -7,3 +7,5 @@ alembic
 aiofiles
 python-multipart
 sqlmodel
+ultralytics
+pillow

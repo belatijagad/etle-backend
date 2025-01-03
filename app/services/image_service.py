@@ -1,7 +1,5 @@
 import os
-import uuid
-import json
-from datetime import datetime
+from uuid import UUID, uuid4
 import aiofiles
 from fastapi import UploadFile, HTTPException, status
 from sqlmodel import Session, select
@@ -44,10 +42,22 @@ class ImageService:
         detail=f'An error occurred while uploading the image: {str(e)}'
       )
 
+  async def get_image(self, image_id: UUID) -> Image:
+    with Session(engine) as session:
+      image = session.get(Image, image_id)
+      if not image:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+      return image
+
+  async def list_images(self, skip: int = 0, limit: int = 100) -> list[Image]:
+    with Session(engine) as session:
+      images = session.exec(select(Image).offset(skip).limit(limit)).all()
+      return images
+
   async def _save_to_database(self, image_data: ImageCreate) -> Image:
     try:
       with Session(engine) as session:
-        db_image = Image.from_orm(image_data)
+        db_image = Image.model_validate(image_data)
         session.add(db_image)
         session.commit()
         session.refresh(db_image)
@@ -70,7 +80,7 @@ class ImageService:
 
   def _generate_file_path(self, file: UploadFile) -> tuple[str, str]:
     file_extension = os.path.splitext(file.filename)[1]
-    unique_filename = f'{uuid.uuid4()}{file_extension}'
+    unique_filename = f'{uuid4()}{file_extension}'
     file_path = os.path.join(self.upload_dir, unique_filename)
     return file_path, unique_filename
 
